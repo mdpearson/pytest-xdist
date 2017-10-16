@@ -168,8 +168,8 @@ class LoadScheduling:
             num_nodes = len(self.node2pending)
             # if our node goes below a heuristic minimum, fill it out to
             # heuristic maximum
-            items_per_node_min = max(2, len(self.pending) // num_nodes // 4)
-            items_per_node_max = max(2, len(self.pending) // num_nodes // 2)
+            items_per_node_min = 2
+            items_per_node_max = 2
             node_pending = self.node2pending[node]
             if len(node_pending) < items_per_node_min:
                 if duration >= 0.1 and len(node_pending) >= 2:
@@ -238,8 +238,7 @@ class LoadScheduling:
         # Send a batch of tests to run. If we don't have at least two
         # tests per node, we have to send them all so that we can send
         # shutdown signals and get all nodes working.
-        initial_batch = max(len(self.pending) // 4,
-                            2 * len(self.nodes))
+        initial_batch = 2 * len(self.nodes)
 
         # distribute tests round-robin up to the batch size
         # (or until we run out)

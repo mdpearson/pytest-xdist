@@ -88,7 +88,8 @@ class LoadScheduling(object):
         if self.pending:
             return False
         for pending in self.node2pending.values():
-            if len(pending) >= 2:
+            # Invitae modification: *any* pending test is disqualifying
+            if pending:
                 return False
         return True
 
@@ -163,25 +164,8 @@ class LoadScheduling(object):
             return
 
         if self.pending:
-            # how many nodes do we have?
-            num_nodes = len(self.node2pending)
-            # if our node goes below a heuristic minimum, fill it out to
-            # heuristic maximum
-            items_per_node_min = max(2, len(self.pending) // num_nodes // 4)
-            items_per_node_max = max(2, len(self.pending) // num_nodes // 2)
-
-            # Invitae modification: make heuristics the legal minimum
-            items_per_node_min = items_per_node_max = 2
-
-            node_pending = self.node2pending[node]
-            if len(node_pending) < items_per_node_min:
-                if duration >= 0.1 and len(node_pending) >= 2:
-                    # seems the node is doing long-running tests
-                    # and has enough items to continue
-                    # so let's rather wait with sending new items
-                    return
-                num_send = items_per_node_max - len(node_pending)
-                self._send_tests(node, num_send)
+            # Invitae modification: always assign exactly one test at a time
+            self._send_tests(node, 1)
         else:
             node.shutdown()
 
@@ -241,27 +225,20 @@ class LoadScheduling(object):
         if not self.collection:
             return
 
-        # Send a batch of tests to run. If we don't have at least two
-        # tests per node, we have to send them all so that we can send
-        # shutdown signals and get all nodes working.
-        initial_batch = max(len(self.pending) // 4, 2 * len(self.nodes))
-
-        # Invitae modification: most of our tests are quite slow; in
+        #
+        # Invitae modification: many of our tests are *very* slow; in
         # the common case where there are more available tests than
-        # nodes to run them on, assign just two tests to each worker
+        # nodes to run them on, assign at most two tests to each worker
         # at first. The standard implementation doles out many tests
         # to each worker at startup, assuming that they all will run
         # in more-or-less the same amount of time. In our case, some
         # tests can run for over an hour longer than others, so it's
         # worth the overhead of calling schedule() more frequently
         # if it gets us a more even distribution of work.
-        initial_batch = 2 * len(self.nodes)
-
-        # distribute tests round-robin up to the batch size
-        # (or until we run out)
+        #
         nodes = cycle(self.nodes)
-        for i in range(initial_batch):
-            self._send_tests(next(nodes), 1)
+        for i in range(len(self.nodes)):
+            self._send_tests(next(nodes), 2)
 
         if not self.pending:
             # initial distribution sent all tests, start node shutdown
